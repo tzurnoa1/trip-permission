@@ -466,10 +466,8 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      const res  = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
-      const data = await res.json();
-      if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
-      else setError(data.error || "שגיאה. נסה שוב.");
+      await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload), mode:"no-cors" });
+      setConfirmId(""); setStep(5);
     } catch { setError("שגיאת רשת — בדוק חיבור ונסה שוב."); }
     setSubmitting(false);
   };
@@ -665,13 +663,12 @@ function StudentFlow({ token }) {
   const handleSubmit = async () => {
     setSubmitting(true); setError("");
     try {
-      const res = await fetch(CONFIG.WEBHOOK_URL, {
+      await fetch(CONFIG.WEBHOOK_URL, {
         method:"POST", headers:{"Content-Type":"text/plain"},
         body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
+        mode:"no-cors"
       });
-      const d = await res.json();
-      if (d.success) setState("done");
-      else setError(d.error || "שגיאה בשמירה");
+      setState("done");
     } catch { setError("שגיאת רשת — נסה שוב"); }
     setSubmitting(false);
   };
