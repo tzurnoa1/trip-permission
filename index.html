@@ -26,8 +26,8 @@ const { useState, useRef, useEffect, useCallback } = React;
 // ⚙️  CONFIG — שנה כאן לפני שימוש
 // ═══════════════════════════════════════════════
 const CONFIG = {
-  WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbwfo726Q4YBJ_-eQJLsKDiZXUql9x2tN-NQb3aeRI_whhVeavvcMxfFR382blM2MSYkqg/exec",
-  APP_URL:     "https://tzurnoa1.github.io/trip-permission/",
+  WEBHOOK_URL:      "https://script.google.com/macros/s/REPLACE_WITH_YOUR_SCRIPT_ID/exec",
+  APP_URL:          "https://REPLACE_WITH_YOUR_APP_URL/trip-permission.html",
   SCHOOL_NAME:      "בית ספר פסגות ORT",
   TRIP_NAME:        'טיול שנתי שכבה ז\' תשפ"ו — הרי גולן',
   TRIP_DESTINATION: "רמת הגולן",
@@ -466,7 +466,7 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      const res  = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+      const res  = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
       const data = await res.json();
       if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
       else setError(data.error || "שגיאה. נסה שוב.");
@@ -666,7 +666,7 @@ function StudentFlow({ token }) {
     setSubmitting(true); setError("");
     try {
       const res = await fetch(CONFIG.WEBHOOK_URL, {
-        method:"POST", headers:{"Content-Type":"application/json"},
+        method:"POST", headers:{"Content-Type":"text/plain"},
         body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
       });
       const d = await res.json();
