@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>מערכת אישורי יציאה לטיול</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; padding: 0; font-family: 'Heebo', sans-serif; direction: rtl; }
+  input, select, textarea, button { font-family: 'Heebo', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: #c0bab0; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ═══════════════════════════════════════════════
+// ⚙️  CONFIG — שנה כאן לפני שימוש
+// ═══════════════════════════════════════════════
+const CONFIG = {
+  WEBHOOK_URL:      "https://script.google.com/macros/s/REPLACE_WITH_YOUR_SCRIPT_ID/exec",
+  APP_URL:          "https://REPLACE_WITH_YOUR_APP_URL/trip-permission.html",
+  SCHOOL_NAME:      "בית ספר פסגות ORT",
+  TRIP_NAME:        'טיול שנתי שכבה ז\' תשפ"ו — הרי גולן',
+  TRIP_DESTINATION: "רמת הגולן",
+  TRIP_DATES:       "18–19 במרץ 2026",
+  EMAIL_DOMAIN:     "",   // מיילים מלאים כבר נמצאים ברשימה
+};
+
+// ═══════════════════════════════════════════════
+// 📋  רשימת תלמידים — נטענת מקובץ האקסל
+// ═══════════════════════════════════════════════
+const ALL_STUDENTS = [
+  {firstName:"אוון",lastName:"בליומין",class:"ז5",email:"evanbe31@psagot.ort.org.il"},
+  {firstName:"אילנה",lastName:"גרצ'קין",class:"ז5",email:"ilanagr31@psagot.ort.org.il"},
+  {firstName:"אל חן",lastName:"טפטה",class:"ז5",email:"elchenta31@psagot.ort.org.il"},
+  {firstName:"אליה רבקה",lastName:"שם טוב",class:"ז5",email:"eliash31@psagot.ort.org.il"},
+  {firstName:"אנסטסיה",lastName:"רבקלו",class:"ז5",email:"anastasyara31@psagot.ort.org.il"},
+  {firstName:"בת-שי ליסט",lastName:"טגאו",class:"ז5",email:"bat-shaita31@psagot.ort.org.il"},
+  {firstName:"גאיה",lastName:"מורביה",class:"ז5",email:"gaiamo31@psagot.ort.org.il"},
+  {firstName:"דוד",lastName:"לוקין",class:"ז5",email:"davidlu31@psagot.ort.org.il"},
+  {firstName:"דין",lastName:"שורץ",class:"ז5",email:"deans31@psagot.ort.org.il"},
+  {firstName:"הודיה",lastName:"בן שטרית",class:"ז5",email:"hodayabe31@psagot.ort.org.il"},
+  {firstName:"יובל",lastName:"שטיימן",class:"ז5",email:"yuvalsh31@psagot.ort.org.il"},
+  {firstName:"יונתן",lastName:"מורגנשטרן",class:"ז5",email:"yonatanmo31@psagot.ort.org.il"},
+  {firstName:"ירין דוד",lastName:"פלד",class:"ז5",email:"yarinpe31@psagot.ort.org.il"},
+  {firstName:"כרמל",lastName:"אבו רמילה",class:"ז5",email:"carmelabu31@psagot.ort.org.il"},
+  {firstName:"כרמל",lastName:"טאו",class:"ז5",email:"carmelta31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"שחר",class:"ז5",email:"liamda31@psagot.ort.org.il"},
+  {firstName:"ליאן",lastName:"בן חמו",class:"ז5",email:"lianbe31@psagot.ort.org.il"},
+  {firstName:"ליטל",lastName:"וובסי",class:"ז5",email:"litalwe31@psagot.ort.org.il"},
+  {firstName:"מגד",lastName:"בורקאן",class:"ז5",email:"majdbu31@psagot.ort.org.il"},
+  {firstName:"נהורה",lastName:"ברובין",class:"ז5",email:"nehoraba31@psagot.ort.org.il"},
+  {firstName:"נועם",lastName:"קנר",class:"ז5",email:"noamka31@psagot.ort.org.il"},
+  {firstName:"עדי",lastName:"חיון",class:"ז5",email:"adiha31@psagot.ort.org.il"},
+  {firstName:"ענהאל",lastName:"סהלו",class:"ז5",email:"anaelsa31@psagot.ort.org.il"},
+  {firstName:"שרבל",lastName:"פרח",class:"ז5",email:"charbelpe31@psagot.ort.org.il"},
+  {firstName:"תאי",lastName:"סולומון",class:"ז5",email:"taiso31@psagot.ort.org.il"},
+  {firstName:"תהל רבקה",lastName:"שיר",class:"ז5",email:"tahelsh31@psagot.ort.org.il"},
+  {firstName:"אבירן",lastName:"זר",class:"ז1",email:"aviranze31@psagot.ort.org.il"},
+  {firstName:"אגם",lastName:"אביטבול",class:"ז1",email:"agamab31@psagot.ort.org.il"},
+  {firstName:"אור לאה",lastName:"פזור",class:"ז1",email:"orpa31@psagot.ort.org.il"},
+  {firstName:"אוראל",lastName:"איזנשטיין",class:"ז1",email:"orelei31@psagot.ort.org.il"},
+  {firstName:"איוון",lastName:"טוקובנקו",class:"ז1",email:"ivanto31@psagot.ort.org.il"},
+  {firstName:"אלאנורה",lastName:"קרופין",class:"ז1",email:"elanorakr31@psagot.ort.org.il"},
+  {firstName:"אליס אלינור",lastName:"ויינבלט",class:"ז1",email:"alicewe31@psagot.ort.org.il"},
+  {firstName:"אנסטסיה",lastName:"ליקוב",class:"ז1",email:"anastasialy31@psagot.ort.org.il"},
+  {firstName:"יגור",lastName:"לבצ'נקו",class:"ז1",email:"yegorle31@psagot.ort.org.il"},
+  {firstName:"יגל",lastName:"ניר",class:"ז1",email:"yagelni31@psagot.ort.org.il"},
+  {firstName:"ירדן",lastName:"טייח",class:"ז1",email:"jordanta31@psagot.ort.org.il"},
+  {firstName:"לאוניד",lastName:"זלזניאק",class:"ז1",email:"leonidze31@psagot.ort.org.il"},
+  {firstName:"לורן",lastName:"רחמנוב",class:"ז1",email:"laurenra31@psagot.ort.org.il"},
+  {firstName:"ליאב משיח",lastName:"נג'אתי",class:"ז1",email:"liavna31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"פרסקיב",class:"ז1",email:"liampr31@psagot.ort.org.il"},
+  {firstName:"ליליאנה",lastName:"פורמן",class:"ז1",email:"lilianafo31@psagot.ort.org.il"},
+  {firstName:"לינוי",lastName:"חכמון",class:"ז1",email:"linoych31@psagot.ort.org.il"},
+  {firstName:"מור יהודה",lastName:"הירש",class:"ז1",email:"morhi31@psagot.ort.org.il"},
+  {firstName:"נועה",lastName:"ברומברג",class:"ז1",email:"noabr31@psagot.ort.org.il"},
+  {firstName:"ניקה",lastName:"לוסב",class:"ז1",email:"nikalu31@psagot.ort.org.il"},
+  {firstName:"ניקול",lastName:"יעקובוב",class:"ז1",email:"nicoleya31@psagot.ort.org.il"},
+  {firstName:"עומרי",lastName:"קנר",class:"ז1",email:"omrika31@psagot.ort.org.il"},
+  {firstName:"עידן",lastName:"גאראי",class:"ז1",email:"idanga31@psagot.ort.org.il"},
+  {firstName:"עילי",lastName:"איזמיילוב",class:"ז1",email:"ilayiz31@psagot.ort.org.il"},
+  {firstName:"עמית",lastName:"שגב",class:"ז1",email:"amitse31@psagot.ort.org.il"},
+  {firstName:"קורל",lastName:"סולימני",class:"ז1",email:"coralso31@psagot.ort.org.il"},
+  {firstName:"רון",lastName:"ריס",class:"ז1",email:"ronri31@psagot.ort.org.il"},
+  {firstName:"רועי",lastName:"פסטוב",class:"ז1",email:"roypa31@psagot.ort.org.il"},
+  {firstName:"אביאל",lastName:"קסה",class:"ז2",email:"avielka31@psagot.ort.org.il"},
+  {firstName:"אופיר",lastName:"בורובצינסקי",class:"ז2",email:"ofirbo31@psagot.ort.org.il"},
+  {firstName:"אמילי",lastName:"נטפוב",class:"ז2",email:"emilyne31@psagot.ort.org.il"},
+  {firstName:"אנטון",lastName:"יעקוב",class:"ז2",email:"antonya31@psagot.ort.org.il"},
+  {firstName:"בר",lastName:"אברה",class:"ז2",email:"barab31@psagot.ort.org.il"},
+  {firstName:"הודיה",lastName:"מליסה",class:"ז2",email:"hodayame31@psagot.ort.org.il"},
+  {firstName:"הלל",lastName:"גולד",class:"ז2",email:"hallelgo31@psagot.ort.org.il"},
+  {firstName:"יאן",lastName:"רטמן",class:"ז2",email:"yanra31@psagot.ort.org.il"},
+  {firstName:"יהונתן",lastName:"כהן",class:"ז2",email:"yehonatanco31@psagot.ort.org.il"},
+  {firstName:"יהונתן",lastName:"מלר",class:"ז2",email:"jonathanme31@psagot.ort.org.il"},
+  {firstName:"יהונתן דוד",lastName:"יגר",class:"ז2",email:"jonathanja31@psagot.ort.org.il"},
+  {firstName:"יליזבטה",lastName:"לרין",class:"ז2",email:"lizala31@psagot.ort.org.il"},
+  {firstName:"יקטרינה",lastName:"זכרוב",class:"ז2",email:"ekaterinaza31@psagot.ort.org.il"},
+  {firstName:"לוסיה",lastName:"קרסבניה",class:"ז2",email:"luciakr31@psagot.ort.org.il"},
+  {firstName:"ליאל",lastName:"גולן",class:"ז2",email:"lielgo31@psagot.ort.org.il"},
+  {firstName:"ליאל",lastName:"ממדוב",class:"ז2",email:"lielma31@psagot.ort.org.il"},
+  {firstName:"ליבי",lastName:"רנדליך",class:"ז2",email:"libire31@psagot.ort.org.il"},
+  {firstName:"ליליאן",lastName:"שפירוב",class:"ז2",email:"liliansh31@psagot.ort.org.il"},
+  {firstName:"מיכל",lastName:"אלייבסקי",class:"ז2",email:"michalal31@psagot.ort.org.il"},
+  {firstName:"נויה",lastName:"נוה",class:"ז2",email:"noyana31@psagot.ort.org.il"},
+  {firstName:"נועם",lastName:"אדלמן",class:"ז2",email:"noamed31@psagot.ort.org.il"},
+  {firstName:"נועם",lastName:"לחייאני",class:"ז2",email:"noamla31@psagot.ort.org.il"},
+  {firstName:"נתנאל",lastName:"קליש",class:"ז2",email:"nathanielka31@psagot.ort.org.il"},
+  {firstName:"סביאטוסלב",lastName:"שאיוק",class:"ז2",email:"svyatoslavsh31@psagot.ort.org.il"},
+  {firstName:"עדן",lastName:"היררי",class:"ז2",email:"edenhi31@psagot.ort.org.il"},
+  {firstName:"ענהאל",lastName:"בניסטי",class:"ז2",email:"anaelbe31@psagot.ort.org.il"},
+  {firstName:"פלג",lastName:"קנר",class:"ז2",email:"pelegka31@psagot.ort.org.il"},
+  {firstName:"רחל",lastName:"דלמונטה",class:"ז2",email:"rachelde31@psagot.ort.org.il"},
+  {firstName:"שיראל",lastName:"סבג",class:"ז2",email:"shirelsa31@psagot.ort.org.il"},
+  {firstName:"שלום דב בער",lastName:"הרמן",class:"ז2",email:"shalomhe31@psagot.ort.org.il"},
+  {firstName:"שלי",lastName:"בקומנקו",class:"ז2",email:"shellyba31@psagot.ort.org.il"},
+  {firstName:"שקד",lastName:"שטרן",class:"ז2",email:"shakedst31@psagot.ort.org.il"},
+  {firstName:"תיחון",lastName:"קוזנוב",class:"ז2",email:"tichonko31@psagot.ort.org.il"},
+  {firstName:"אביטל",lastName:"פונטוס",class:"ז3",email:"avitalpo31@psagot.ort.org.il"},
+  {firstName:"אווה",lastName:"אייזנגרט",class:"ז3",email:"evaei31@psagot.ort.org.il"},
+  {firstName:"איתי",lastName:"אדרי",class:"ז3",email:"itayed31@psagot.ort.org.il"},
+  {firstName:"אלון",lastName:"הרשקוביץ",class:"ז3",email:"alonher31@psagot.ort.org.il"},
+  {firstName:"אלין",lastName:"מזרחי",class:"ז3",email:"alinemi31@psagot.ort.org.il"},
+  {firstName:"אלינוי",lastName:"מלמוד",class:"ז3",email:"elinoyma31@psagot.ort.org.il"},
+  {firstName:"אמיליה מריה",lastName:"עזאם קרסנוב",class:"ז3",email:"ameliaaz31@psagot.ort.org.il"},
+  {firstName:"גל-יה",lastName:"מילמן",class:"ז3",email:"gal-yami31@psagot.ort.org.il"},
+  {firstName:"דוד ג'ורג",lastName:"רוזנברג",class:"ז3",email:"davidro31@psagot.ort.org.il"},
+  {firstName:"דמיטרי",lastName:"פיגלוב",class:"ז3",email:"dmitryfi31@psagot.ort.org.il"},
+  {firstName:"יובל חי",lastName:"טקץ",class:"ז3",email:"yuvalta31@psagot.ort.org.il"},
+  {firstName:"יעל",lastName:"לב",class:"ז3",email:"yaelle31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"בורצב",class:"ז3",email:"liambo31@psagot.ort.org.il"},
+  {firstName:"ליעד",lastName:"מזרחי",class:"ז3",email:"liadmi31@psagot.ort.org.il"},
+  {firstName:"לירן",lastName:"גזית",class:"ז3",email:"liranga31@psagot.ort.org.il"},
+  {firstName:"מאור",lastName:"אלבוים",class:"ז3",email:"maorel31@psagot.ort.org.il"},
+  {firstName:"מיכאל",lastName:"פיסמן",class:"ז3",email:"michaelpi31@psagot.ort.org.il"},
+  {firstName:"מישל",lastName:"מוגילבסקי",class:"ז3",email:"michellemo31@psagot.ort.org.il"},
+  {firstName:"נאי",lastName:"אבו ימן",class:"ז3",email:"naiab31@psagot.ort.org.il"},
+  {firstName:"נהוראי",lastName:"גנני",class:"ז3",email:"nehoraiga31@psagot.ort.org.il"},
+  {firstName:"נויה",lastName:"צדיקפור",class:"ז3",email:"noyatzad31@psagot.ort.org.il"},
+  {firstName:"נועה",lastName:"צור",class:"ז3",email:"tzurnoa1@gmail.com"},
+  {firstName:"נתנאל",lastName:"ביידר",class:"ז3",email:"nathanielba31@psagot.ort.org.il"},
+  {firstName:"סופיה",lastName:"ויינדורף",class:"ז3",email:"sofiawe31@psagot.ort.org.il"},
+  {firstName:"עוז",lastName:"בן דיין",class:"ז3",email:"ozbe31@psagot.ort.org.il"},
+  {firstName:"עילאי",lastName:"טהורי",class:"ז3",email:"ilayta31@psagot.ort.org.il"},
+  {firstName:"עתי",lastName:"דהן",class:"ז3",email:"ataida31@psagot.ort.org.il"},
+  {firstName:"רביד",lastName:"חיון",class:"ז3",email:"ravidha31@psagot.ort.org.il"},
+  {firstName:"רוסטיסלב",lastName:"זכרוב",class:"ז3",email:"rostislavza31@psagot.ort.org.il"},
+  {firstName:"רועי",lastName:"חן",class:"ז3",email:"roych31@psagot.ort.org.il"},
+  {firstName:"רם",lastName:"גאנם",class:"ז3",email:"ramgh31@psagot.ort.org.il"},
+  {firstName:"שי-לי",lastName:"רחמימוב",class:"ז3",email:"shai-lira31@psagot.ort.org.il"},
+  {firstName:"אביגיל",lastName:"מץ",class:"ז4",email:"avigailme31@psagot.ort.org.il"},
+  {firstName:"אביגיל",lastName:"קוגוס",class:"ז4",email:"avigailko31@psagot.ort.org.il"},
+  {firstName:"אדל",lastName:"לוי",class:"ז4",email:"adelele31@psagot.ort.org.il"},
+  {firstName:"אוהד",lastName:"רנדליך",class:"ז4",email:"ohadra31@psagot.ort.org.il"},
+  {firstName:"אורלב",lastName:"סולומון",class:"ז4",email:"orlevsa31@psagot.ort.org.il"},
+  {firstName:"איתי",lastName:"רויטמן",class:"ז4",email:"itayro31@psagot.ort.org.il"},
+  {firstName:"אלונה",lastName:"זכרצ'נקו",class:"ז4",email:"alonaza31@psagot.ort.org.il"},
+  {firstName:"אמה",lastName:"גרצמן",class:"ז4",email:"emmage31@psagot.ort.org.il"},
+  {firstName:"אמילי",lastName:"נירנברג-פך",class:"ז4",email:"emilynu31@psagot.ort.org.il"},
+  {firstName:"אנט",lastName:"נייפלד",class:"ז4",email:"annettene31@psagot.ort.org.il"},
+  {firstName:"אפק",lastName:"יצחק",class:"ז4",email:"afekyi31@psagot.ort.org.il"},
+  {firstName:"ברק",lastName:"בייסרון",class:"ז4",email:"barakbe31@psagot.ort.org.il"},
+  {firstName:"דויד",lastName:"גרסמן",class:"ז4",email:"davidgr31@psagot.ort.org.il"},
+  {firstName:"דניאל",lastName:"מרציאנו",class:"ז4",email:"danielma31@psagot.ort.org.il"},
+  {firstName:"טימור",lastName:"צ'בוטקו",class:"ז4",email:"timurch31@psagot.ort.org.il"},
+  {firstName:"ינאי",lastName:"גלוצקי",class:"ז4",email:"yanaigl31@psagot.ort.org.il"},
+  {firstName:"ירין",lastName:"נתן",class:"ז4",email:"yarinna31@psagot.ort.org.il"},
+  {firstName:"ליאור",lastName:"פוטילין",class:"ז4",email:"liorpu31@psagot.ort.org.il"},
+  {firstName:"ליאן",lastName:"רוזוב",class:"ז4",email:"lianro31@psagot.ort.org.il"},
+  {firstName:"מאיה",lastName:"באומל",class:"ז4",email:"mayaba31@psagot.ort.org.il"},
+  {firstName:"מעיין",lastName:"ויסמן",class:"ז4",email:"maayanwe31@psagot.ort.org.il"},
+  {firstName:"נועם",lastName:"קטן",class:"ז4",email:"noamkat31@psagot.ort.org.il"},
+  {firstName:"נתנאל",lastName:"שומינוב",class:"ז4",email:"netanelsh31@psagot.ort.org.il"},
+  {firstName:"עדן",lastName:"בדינטר",class:"ז4",email:"edenba31@psagot.ort.org.il"},
+  {firstName:"עינבל",lastName:"הדר",class:"ז4",email:"inbalha31@psagot.ort.org.il"},
+  {firstName:"קיריל",lastName:"באבושקין",class:"ז4",email:"kirillba31@psagot.ort.org.il"},
+  {firstName:"קרין ספיר",lastName:"אנאש",class:"ז4",email:"karinan31@psagot.ort.org.il"},
+  {firstName:"קרינה",lastName:"פסטונוביץ",class:"ז4",email:"karinape31@psagot.ort.org.il"},
+  {firstName:"רומי",lastName:"זיו",class:"ז4",email:"romizi31@psagot.ort.org.il"},
+  {firstName:"שני",lastName:"וגנר",class:"ז4",email:"shaniwa31@psagot.ort.org.il"},
+  {firstName:"שקד",lastName:"מוסקוביץ",class:"ז4",email:"shakedmo31@psagot.ort.org.il"},
+  {firstName:"אביגיל",lastName:"דבוסקין",class:"ז6",email:"avigaildv31@psagot.ort.org.il"},
+  {firstName:"אגם הודיה",lastName:"בכור",class:"ז6",email:"agamfi31@psagot.ort.org.il"},
+  {firstName:"אדיר דיויד",lastName:"אשירוב",class:"ז6",email:"adiras31@psagot.ort.org.il"},
+  {firstName:"אוריאן",lastName:"הלוי",class:"ז6",email:"orianha31@psagot.ort.org.il"},
+  {firstName:"איתן",lastName:"מליוגה",class:"ז6",email:"ethanma31@psagot.ort.org.il"},
+  {firstName:"אליה",lastName:"אביב",class:"ז6",email:"eliaav31@psagot.ort.org.il"},
+  {firstName:"אלכסנדרה",lastName:"סרקיסוב",class:"ז6",email:"alexandrasa31@psagot.ort.org.il"},
+  {firstName:"אנאל",lastName:"אברג'ל",class:"ז6",email:"anaelab31@psagot.ort.org.il"},
+  {firstName:"אריק",lastName:"בוזדוגן",class:"ז6",email:"ericbo31@psagot.ort.org.il"},
+  {firstName:"בראל יהודה",lastName:"רוזין",class:"ז6",email:"barelro31@psagot.ort.org.il"},
+  {firstName:"גריגורי",lastName:"פיסמן",class:"ז6",email:"grigorypi31@psagot.ort.org.il"},
+  {firstName:"דומיניקה",lastName:"פורשיה",class:"ז6",email:"dominicapo31@psagot.ort.org.il"},
+  {firstName:"דמיטרי",lastName:"זיאבצ'ניקוב",class:"ז6",email:"demitryzi31@psagot.ort.org.il"},
+  {firstName:"הודיה",lastName:"אברהם",class:"ז6",email:"hodayaav31@psagot.ort.org.il"},
+  {firstName:"זוהר",lastName:"אזולאי",class:"ז6",email:"zoharaz31@psagot.ort.org.il"},
+  {firstName:"טומס",lastName:"בוגדנוב",class:"ז6",email:"thomasbo31@psagot.ort.org.il"},
+  {firstName:"יוליאן",lastName:"פולונסקי",class:"ז6",email:"julianpo31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"אסור",class:"ז6",email:"liamfo31@psagot.ort.org.il"},
+  {firstName:"ליאן",lastName:"שניאור",class:"ז6",email:"liansh31@psagot.ort.org.il"},
+  {firstName:"מיכאל",lastName:"בוקסר",class:"ז6",email:"michaelbo31@psagot.ort.org.il"},
+  {firstName:"מיכאל",lastName:"סברין",class:"ז6",email:"michaelsa31@psagot.ort.org.il"},
+  {firstName:"מרי",lastName:"ניימן",class:"ז6",email:"maryne31@psagot.ort.org.il"},
+  {firstName:"נטע-לי",lastName:"אברמוצ'קין",class:"ז6",email:"neta-leeab31@psagot.ort.org.il"},
+  {firstName:"ניקה",lastName:"באס",class:"ז6",email:"nikaba31@psagot.ort.org.il"},
+  {firstName:"ניקיטה",lastName:"רדיץ'",class:"ז6",email:"nikitare31@psagot.ort.org.il"},
+  {firstName:"נעמה",lastName:"ונגר",class:"ז6",email:"naamawe31@psagot.ort.org.il"},
+  {firstName:"רותם",lastName:"קמרש",class:"ז6",email:"rotemka31@psagot.ort.org.il"},
+  {firstName:"שילי",lastName:"יונס",class:"ז6",email:"shailijo31@psagot.ort.org.il"},
+  {firstName:"אלכסנדר",lastName:"ליבמן",class:"ז7",email:"alexanderli31@psagot.ort.org.il"},
+  {firstName:"אריקה",lastName:"גבאי",class:"ז7",email:"ericag31@psagot.ort.org.il"},
+  {firstName:"הודיה",lastName:"מלסה",class:"ז7",email:"hodayama31@psagot.ort.org.il"},
+  {firstName:"יניב",lastName:"פישר",class:"ז7",email:"yanivfi31@psagot.ort.org.il"},
+  {firstName:"יפה",lastName:"קרה",class:"ז7",email:"yaffaka31@psagot.ort.org.il"},
+  {firstName:"לאון",lastName:"פילמן",class:"ז7",email:"leonpi31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"מקרובסקי",class:"ז7",email:"liamma31@psagot.ort.org.il"},
+  {firstName:"ליאם",lastName:"זילברמן",class:"ז7",email:"liamzh31@psagot.ort.org.il"},
+  {firstName:"מרים",lastName:"מלכין",class:"ז7",email:"miriamma31@psagot.ort.org.il"},
+  {firstName:"עומרי",lastName:"בריק",class:"ז7",email:"omrib31@psagot.ort.org.il"},
+];
+
+const PERMISSION_TEXT = `פרטי הטיול:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+יציאה: יום ד', כ"ט אדר תשפ"ו — 18/3/2026
+התייצבות: 06:30 בחניית מרכז ברוך (נא לדייק!)
+חזרה: יום ה', א' ניסן תשפ"ו — 19/3/2026 עד 18:00
+פיזור: לפי קווי האוטובוס ממרכז ברוך
+לינה: לינת אוהלים בחניון חאן אל על
+
+מסלולים ופעילויות:
+יום ד' 18/3: תצפית הר בנטל ומסלול עד עין זיוון על שביל הגולן
+יום ה' 19/3: מסלול בבניאס וסיור באנדרטת המסוקים בקרבת שאר יישוב
+
+הטיול מאושר על ידי משרד החינוך וגורמי הביטחון (משטרת ישראל וצה"ל).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+אישור הורה:
+
+אני הח"מ, הורה/אפוטרופוס חוקי של התלמיד/ה הנ"ל, מאשר/ת בזאת את יציאת ילדי לטיול השנתי לרמת הגולן.
+
+קראתי את כל פרטי הטיול, כולל המסלולים, לוחות הזמנים וכללי ההתנהגות, ואני מאשר/ת את השתתפות ילדי בכל הפעילויות המתוכננות.
+
+אני מאשר/ת ומצהיר/ה כי:
+
+1. ילדי יצא מצוייד כנדרש — כולל ארוחות, 3 ליטר מים, כובע, פנס, ובמידת הצורך משאף נוסף.
+
+2. ילדי נמצא במצב בריאותי המאפשר השתתפות פעילה, לרבות הליכה ממושכת ופעילות שדה.
+
+3. אני מתחייב/ת לעדכן את בית הספר בכל שינוי במצב בריאות ילדי עד למועד הטיול.
+
+4. אני מסמיך/ה את הצוות המלווה לנקוט בכל אמצעי רפואי דחוף הנדרש במקרה חירום.
+
+5. ידוע לי כי ילדי חייב לציית להוראות כל מבוגר בטיול, וכי הפרת כללי אמנת בית הספר עלולה לגרור הרחקה מהטיול על חשבון ההורים.
+
+6. ידוע לי כי חל איסור מוחלט על: עישון, אלכוהול, משקאות ממריצים, כלי נשק, אלימות, סטייה מהמסלול, שימוש בטלפון בזמן הליכה, וחציית גדרות לאורך המסלול מחשש למוקשים.
+
+7. ידוע לי כי יש לחגור חגורות בטיחות בנסיעה, ולשמור על שקט לאחר שעת כיבוי האורות.
+
+חתימתי מהווה אישור מלא ומוחלט לכל האמור לעיל.`;
+
+function validateIsraeliID(raw) {
+  const id = String(raw).replace(/\D/g,"").padStart(9,"0");
+  if (id.length !== 9) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    let v = parseInt(id[i]) * ((i % 2) + 1);
+    if (v > 9) v -= 9;
+    sum += v;
+  }
+  return sum % 10 === 0;
+}
+
+function formatDateTime(d = new Date()) {
+  return d.toLocaleDateString("he-IL", {
+    day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit",
+  });
+}
+
+const C = {
+  navy:"#0D1E45", navyMid:"#183367", gold:"#C9A84C", goldLight:"#E8C96A",
+  green:"#1F8A5E", red:"#C0392B", cream:"#FFFDF7", border:"#E0DDD5",
+  text:"#1A1A2E", muted:"#6B7280",
+};
+
+const S = {
+  btnNavy:    { background:C.navy, color:"#fff", border:"none", borderRadius:10, padding:"12px 28px", fontSize:16, cursor:"pointer", fontWeight:600 },
+  btnGold:    { background:`linear-gradient(135deg,${C.gold},${C.goldLight})`, color:"#3D2000", border:"none", borderRadius:10, padding:"12px 28px", fontSize:16, cursor:"pointer", fontWeight:700 },
+  btnOutline: { background:"transparent", color:C.muted, border:`1.5px solid ${C.border}`, borderRadius:10, padding:"11px 22px", fontSize:15, cursor:"pointer" },
+  btnOff:     { background:"#EBEBEB", color:"#AAAAAA", border:"none", borderRadius:10, padding:"12px 28px", fontSize:16, cursor:"not-allowed", fontWeight:600 },
+  input:      { width:"100%", padding:"12px 16px", borderRadius:10, border:`2px solid ${C.border}`, fontSize:16, background:"#FAFAF8", direction:"rtl", outline:"none" },
+  label:      { display:"block", marginBottom:6, fontWeight:700, fontSize:14, color:C.navy },
+  card:       { background:"#fff", borderRadius:16, padding:"22px 20px", boxShadow:"0 2px 12px rgba(13,30,69,0.07)", marginBottom:20 },
+  errBox:     { background:"#FEF2F2", border:"1px solid #FECACA", borderRadius:10, padding:"10px 16px", color:C.red, fontSize:14, marginBottom:16 },
+  warnBox:    { background:"#FFFBEB", border:`1px solid ${C.gold}`, borderRadius:10, padding:"8px 14px", color:"#92400E", fontSize:13, marginBottom:16 },
+  okBox:      { background:"#F0FDF4", border:`1.5px solid ${C.green}`, borderRadius:12, padding:"16px 20px", marginBottom:16 },
+};
+
+function Steps({ current, labels }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"flex-start", marginBottom:28 }}>
+      {labels.map((lbl, i) => {
+        const n=i+1, done=current>n, active=current===n;
+        return (
+          <div key={i} style={{ display:"flex", alignItems:"center" }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
+              <div style={{
+                width:32, height:32, borderRadius:"50%",
+                background: done?C.green : active?C.navy : "#E4E0D8",
+                color: done||active ? "#fff" : "#A0A0A0",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:13, fontWeight:700,
+                boxShadow: active ? `0 0 0 3px rgba(13,30,69,0.15)` : "none",
+              }}>
+                {done ? "✓" : n}
+              </div>
+              <span style={{ fontSize:10, color:active?C.navy:"#A0A0A0", fontWeight:active?700:400, whiteSpace:"nowrap" }}>
+                {lbl}
+              </span>
+            </div>
+            {i < labels.length-1 && (
+              <div style={{ width:28, height:2, marginBottom:18, background:done?C.green:"#E4E0D8" }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SigPad({ onConfirm, label="חתום/י כאן" }) {
+  const ref = useRef(null);
+  const [isDown, setIsDown]     = useState(false);
+  const [hasLines, setHasLines] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const last = useRef(null);
+
+  const getXY = (e, canvas) => {
+    const r = canvas.getBoundingClientRect();
+    const sx = canvas.width/r.width, sy = canvas.height/r.height;
+    const src = e.touches ? e.touches[0] : e;
+    return { x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy };
+  };
+  const down = useCallback(e => {
+    if (confirmed) return;
+    e.preventDefault();
+    last.current = getXY(e, ref.current);
+    setIsDown(true);
+  }, [confirmed]);
+  const move = useCallback(e => {
+    if (!isDown || confirmed) return;
+    e.preventDefault();
+    const c=ref.current, ctx=c.getContext("2d"), p=getXY(e,c);
+    ctx.beginPath(); ctx.moveTo(last.current.x, last.current.y); ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle=C.navy; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round"; ctx.stroke();
+    last.current=p; setHasLines(true);
+  }, [isDown, confirmed]);
+  const up = useCallback(() => setIsDown(false), []);
+  const clear = () => {
+    ref.current.getContext("2d").clearRect(0,0,ref.current.width,ref.current.height);
+    setHasLines(false); setConfirmed(false);
+  };
+  const confirm = () => { setConfirmed(true); onConfirm(ref.current.toDataURL("image/png")); };
+
+  return (
+    <div>
+      {label && <p style={{ marginBottom:8, fontWeight:600, fontSize:14, color:C.navy }}>{label}</p>}
+      <div style={{
+        border: confirmed ? `2px solid ${C.green}` : `2px dashed ${C.gold}`,
+        borderRadius:12, overflow:"hidden",
+        background: confirmed ? "#F0FDF4" : C.cream,
+        position:"relative", touchAction:"none",
+      }}>
+        <canvas ref={ref} width={640} height={180}
+          style={{ width:"100%", display:"block", cursor:confirmed?"default":"crosshair" }}
+          onMouseDown={down} onMouseMove={move} onMouseUp={up} onMouseLeave={up}
+          onTouchStart={down} onTouchMove={move} onTouchEnd={up} />
+        {!hasLines && !confirmed && (
+          <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+            color:"#C0BAA8", fontSize:14, pointerEvents:"none", textAlign:"center" }}>
+            <div style={{ fontSize:24, marginBottom:4 }}>✍️</div>{label}
+          </div>
+        )}
+        {confirmed && (
+          <div style={{ position:"absolute", top:8, left:8, background:C.green, color:"#fff",
+            borderRadius:8, padding:"3px 10px", fontSize:12, fontWeight:600 }}>
+            ✓ חתימה אושרה
+          </div>
+        )}
+      </div>
+      <div style={{ display:"flex", gap:8, marginTop:8, justifyContent:"flex-end" }}>
+        {!confirmed ? (
+          <>
+            <button onClick={clear} style={S.btnOutline}>🗑 נקה</button>
+            <button onClick={confirm} disabled={!hasLines} style={hasLines ? S.btnGold : S.btnOff}>
+              אשר חתימה ✓
+            </button>
+          </>
+        ) : (
+          <button onClick={clear} style={{ ...S.btnOutline, fontSize:12 }}>✎ שנה חתימה</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ParentFlow() {
+  const LABELS = ["בחירת תלמיד","פרטי הורה","האישור","חתימה","סיום"];
+  const [step, setStep]           = useState(1);
+  const [selClass, setSelClass]   = useState("");
+  const [selStudent, setSelStudent] = useState(null);
+  const [parentName, setParentName] = useState("");
+  const [parentId, setParentId]   = useState("");
+  const [idErr, setIdErr]         = useState("");
+  const [medical, setMedical]     = useState(null);
+  const [medDetails, setMedDetails] = useState("");
+  const [sig, setSig]             = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]         = useState("");
+  const [confirmId, setConfirmId] = useState("");
+  const sigDate = useRef(formatDateTime());
+
+  // בנה מפת כיתות מהנתונים המוטמעים
+  const classMap = React.useMemo(() => {
+    const map = {};
+    ALL_STUDENTS.forEach(s => {
+      if (!map[s.class]) map[s.class] = [];
+      map[s.class].push(s);
+    });
+    return map;
+  }, []);
+
+  const onIdChange = v => {
+    setParentId(v);
+    const digits = v.replace(/\D/g,"");
+    if (digits.length >= 7) setIdErr(validateIsraeliID(v) ? "" : "מספר ת.ז. אינו תקין");
+    else setIdErr("");
+  };
+
+  const classes  = Object.keys(classMap).sort();
+  const students = classMap[selClass] || [];
+  const ok1 = selClass && selStudent;
+  const ok2 = parentName.trim().length >= 2 && parentId.replace(/\D/g,"").length >= 8 && !idErr;
+  const ok3 = medical !== null && (medical==="no" || medDetails.trim().length > 0);
+
+  const handleSubmit = async () => {
+    setSubmitting(true); setError("");
+    try {
+      const payload = {
+        action:"parentSign",
+        studentEmail: selStudent.email,   // מייל מלא כבר בנתונים
+        studentName: `${selStudent.firstName} ${selStudent.lastName}`,
+        studentClass: selClass, parentName,
+        parentId: parentId.replace(/\D/g,""),
+        hasMedical: medical==="yes",
+        medicalDetails: medical==="yes" ? medDetails : "",
+        signature: sig, signedAt: sigDate.current,
+        tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
+      };
+      const res  = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+      const data = await res.json();
+      if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
+      else setError(data.error || "שגיאה. נסה שוב.");
+    } catch { setError("שגיאת רשת — בדוק חיבור ונסה שוב."); }
+    setSubmitting(false);
+  };
+
+  return (
+    <div>
+      <Steps current={step} labels={LABELS} />
+      {error && <div style={S.errBox}>⚠️ {error}</div>}
+
+      {step===1 && (
+        <div>
+          <h2 style={{color:C.navy,margin:"0 0 4px",fontSize:22}}>בחירת תלמיד</h2>
+          <p style={{color:C.muted,marginBottom:24,fontSize:15}}>בחר/י את הכיתה ואת שם ילדך</p>
+          <div style={{marginBottom:20}}>
+            <label style={S.label}>כיתה</label>
+            <select value={selClass} onChange={e=>{setSelClass(e.target.value);setSelStudent(null);}}
+              style={{...S.input,WebkitAppearance:"auto"}}>
+              <option value="">— בחר/י כיתה —</option>
+              {classes.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          {selClass && (
+            <div style={{marginBottom:20}}>
+              <label style={S.label}>שם התלמיד/ה</label>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {students.map((s,i)=>(
+                  <button key={i} onClick={()=>setSelStudent(s)} style={{
+                    padding:"12px 18px", borderRadius:10, textAlign:"right",
+                    border: selStudent===s ? `2px solid ${C.navy}` : `2px solid ${C.border}`,
+                    background: selStudent===s ? "#EEF2FF" : "#fff",
+                    cursor:"pointer", fontSize:16,
+                    fontWeight: selStudent===s ? 700 : 400, color:C.navy,
+                  }}>
+                    {selStudent===s && "✓ "}{s.firstName} {s.lastName}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"flex-start",marginTop:24}}>
+            <button onClick={()=>setStep(2)} disabled={!ok1} style={ok1?S.btnNavy:S.btnOff}>המשך ←</button>
+          </div>
+        </div>
+      )}
+
+      {step===2 && (
+        <div>
+          <h2 style={{color:C.navy,margin:"0 0 4px",fontSize:22}}>פרטי הורה / אפוטרופוס</h2>
+          <p style={{color:C.muted,marginBottom:24,fontSize:15}}>
+            הורה של: <strong>{selStudent?.firstName} {selStudent?.lastName}</strong> | כיתה <strong>{selClass}</strong>
+          </p>
+          <div style={{marginBottom:20}}>
+            <label style={S.label}>שם מלא (הורה / אפוטרופוס)</label>
+            <input style={S.input} value={parentName} onChange={e=>setParentName(e.target.value)} placeholder="שם פרטי ושם משפחה" autoComplete="name" />
+          </div>
+          <div style={{marginBottom:20}}>
+            <label style={S.label}>מספר תעודת זהות</label>
+            <input style={{...S.input,borderColor:idErr?C.red:C.border,direction:"ltr",textAlign:"right"}}
+              value={parentId} onChange={e=>onIdChange(e.target.value)}
+              placeholder="000000000" maxLength={9} inputMode="numeric" />
+            {idErr && <p style={{color:C.red,fontSize:13,marginTop:4,marginBottom:0}}>⚠️ {idErr}</p>}
+          </div>
+          <div style={{background:"#F0F4FF",borderRadius:10,padding:"10px 14px",marginBottom:20,fontSize:13,color:"#3730A3"}}>
+            🔒 פרטי הת.ז. משמשים לאימות זהות בלבד ומאוחסנים בצורה מאובטחת.
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+            <button onClick={()=>setStep(1)} style={S.btnOutline}>→ חזור</button>
+            <button onClick={()=>setStep(3)} disabled={!ok2} style={ok2?S.btnNavy:S.btnOff}>המשך ←</button>
+          </div>
+        </div>
+      )}
+
+      {step===3 && (
+        <div>
+          <h2 style={{color:C.navy,margin:"0 0 4px",fontSize:22}}>אישור יציאה לטיול</h2>
+          <p style={{color:C.muted,marginBottom:18,fontSize:15}}>
+            {CONFIG.TRIP_NAME} | {CONFIG.TRIP_DATES} | {CONFIG.TRIP_DESTINATION}
+          </p>
+          <div style={{background:C.cream,border:"1px solid #E8E2CC",borderRadius:14,padding:22,marginBottom:20,
+            fontFamily:'"Frank Ruhl Libre",serif',lineHeight:1.9,fontSize:14,color:C.text,maxHeight:280,overflowY:"auto"}}>
+            <div style={{textAlign:"center",marginBottom:14,paddingBottom:12,borderBottom:"1px solid #E0D9C0"}}>
+              <strong style={{fontSize:17,fontFamily:"Heebo,sans-serif"}}>{CONFIG.SCHOOL_NAME}</strong>
+              <p style={{margin:"3px 0 0",fontSize:13,color:C.muted,fontFamily:"Heebo,sans-serif"}}>
+                אישור הורים | {CONFIG.TRIP_NAME}
+              </p>
+            </div>
+            <div style={{fontFamily:"Heebo,sans-serif",marginBottom:12}}>
+              <strong>שם התלמיד/ה:</strong> {selStudent?.firstName} {selStudent?.lastName} | <strong>כיתה:</strong> {selClass}<br/>
+              <strong>שם ההורה:</strong> {parentName} | <strong>ת.ז.:</strong> {parentId}<br/>
+              <strong>יעד:</strong> {CONFIG.TRIP_DESTINATION} | <strong>תאריכים:</strong> {CONFIG.TRIP_DATES}
+            </div>
+            <hr style={{border:"none",borderTop:"1px solid #E0D9C0",margin:"10px 0"}}/>
+            <div style={{whiteSpace:"pre-line"}}>{PERMISSION_TEXT}</div>
+          </div>
+          <div style={{background:"#FFFBEB",border:`1.5px solid ${C.gold}`,borderRadius:12,padding:18,marginBottom:20}}>
+            <p style={{fontWeight:700,fontSize:15,color:C.navy,marginBottom:8}}>🏥 הצהרה רפואית</p>
+            <p style={{fontSize:14,color:"#555",marginBottom:14,lineHeight:1.6}}>
+              האם לילדך יש מצב רפואי, אלרגיה, תרופות קבועות או מגבלה פיזית שצוות הטיול צריך לדעת עליה?
+            </p>
+            <div style={{display:"flex",gap:10,marginBottom:14}}>
+              {[["no","✅ לא, בריא/ה לחלוטין"],["yes","⚠️ כן, יש מידע חשוב"]].map(([v,lbl])=>(
+                <button key={v} onClick={()=>setMedical(v)} style={{
+                  flex:1, padding:"12px 14px", borderRadius:10, cursor:"pointer",
+                  border: medical===v ? `2px solid ${C.gold}` : `2px solid ${C.border}`,
+                  background: medical===v ? "#FEF3C7" : "#fff",
+                  fontSize:14, fontWeight:medical===v?700:400, color:C.text,
+                }}>{lbl}</button>
+              ))}
+            </div>
+            {medical==="yes" && (
+              <textarea style={{...S.input,minHeight:90,resize:"vertical"}}
+                value={medDetails} onChange={e=>setMedDetails(e.target.value)}
+                placeholder="פרט/י: שם התרופות, מינון, אלרגיות, מגבלות פיזיות..." />
+            )}
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between"}}>
+            <button onClick={()=>setStep(2)} style={S.btnOutline}>→ חזור</button>
+            <button onClick={()=>{sigDate.current=formatDateTime();setStep(4);}} disabled={!ok3} style={ok3?S.btnNavy:S.btnOff}>לחתימה ←</button>
+          </div>
+        </div>
+      )}
+
+      {step===4 && (
+        <div>
+          <h2 style={{color:C.navy,margin:"0 0 4px",fontSize:22}}>חתימה דיגיטלית</h2>
+          <p style={{color:C.muted,marginBottom:4,fontSize:15}}>חתם/י בתיבה למטה לאישור המסמך</p>
+          <p style={{fontSize:12,color:"#A0A0A0",marginBottom:20}}>
+            תאריך החתימה נקלט אוטומטית: <strong style={{color:C.muted}}>{sigDate.current}</strong>
+          </p>
+          <div style={{...S.card,background:C.cream,border:"1px solid #EEE8D0"}}>
+            <p style={{fontSize:14,color:"#444",marginBottom:16,lineHeight:1.7}}>
+              אני, <strong>{parentName}</strong>, ת.ז. <strong>{parentId}</strong>,
+              מאשר/ת בחתימתי את יציאת <strong>{selStudent?.firstName} {selStudent?.lastName}</strong> ל{CONFIG.TRIP_NAME} ומצהיר/ה כי קראתי את האישור במלואו.
+            </p>
+            <SigPad onConfirm={setSig} label="חתימת ההורה/אפוטרופוס" />
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+            <button onClick={()=>setStep(3)} style={S.btnOutline}>→ חזור</button>
+            <button onClick={handleSubmit} disabled={!sig||submitting} style={sig&&!submitting?S.btnGold:S.btnOff}>
+              {submitting ? "⏳ שולח..." : "🔐 שלח ואשר ←"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step===5 && (
+        <div style={{textAlign:"center",padding:"16px 0"}}>
+          <div style={{width:72,height:72,borderRadius:"50%",background:C.green,color:"#fff",
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 16px"}}>✓</div>
+          <h2 style={{color:C.navy,fontSize:24,marginBottom:8}}>האישור נחתם בהצלחה!</h2>
+          <p style={{color:"#555",fontSize:15,lineHeight:1.8,marginBottom:20}}>
+            חתימתך נשמרה. מייל נשלח לכתובת הארגונית של<br/>
+            <strong>{selStudent?.firstName} {selStudent?.lastName}</strong>:
+          </p>
+          <code style={{background:"#F0F4FF",padding:"4px 14px",borderRadius:8,fontSize:14,color:C.navyMid}}>
+            {selStudent?.email}
+          </code>
+          <p style={{color:C.muted,fontSize:14,marginTop:12}}>התלמיד/ה יתבקש/תתבקש לחתום על חלקו/ה באישור.</p>
+          {confirmId && (
+            <div style={{background:"#FFFBEB",border:`1px solid ${C.gold}`,borderRadius:12,padding:16,marginTop:20,display:"inline-block",textAlign:"right"}}>
+              <p style={{margin:0,fontSize:13,color:"#92400E"}}>
+                🔐 מספר אישור: <strong style={{fontFamily:"monospace"}}>{confirmId}</strong><br/>
+                תאריך: <strong>{sigDate.current}</strong>
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentFlow({ token }) {
+  const [state, setState]     = useState("loading");
+  const [data, setData]       = useState(null);
+  const [sig, setSig]         = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]     = useState("");
+  const sigDate = useRef(formatDateTime());
+
+  useEffect(() => {
+    if (!token) { setState("invalid"); return; }
+    fetch(`${CONFIG.WEBHOOK_URL}?action=getSigningData&token=${encodeURIComponent(token)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error)           setState("invalid");
+        else if (d.alreadySigned) setState("alreadySigned");
+        else { setData(d); setState("ready"); }
+      })
+      .catch(() => setState("invalid"));
+  }, [token]);
+
+  const handleSubmit = async () => {
+    setSubmitting(true); setError("");
+    try {
+      const res = await fetch(CONFIG.WEBHOOK_URL, {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
+      });
+      const d = await res.json();
+      if (d.success) setState("done");
+      else setError(d.error || "שגיאה בשמירה");
+    } catch { setError("שגיאת רשת — נסה שוב"); }
+    setSubmitting(false);
+  };
+
+  if (state==="loading") return (
+    <div style={{textAlign:"center",padding:60,color:C.muted}}>
+      <div style={{fontSize:32,marginBottom:8}}>⏳</div>טוען אישור...
+    </div>
+  );
+  if (state==="invalid") return (
+    <div style={{textAlign:"center",padding:40}}>
+      <div style={{fontSize:56,marginBottom:12}}>❌</div>
+      <h3 style={{color:C.red}}>קישור לא תקין או פג תוקף</h3>
+      <p style={{color:C.muted}}>הקישור תקף 72 שעות בלבד.<br/>פנה/י להורה לשליחת קישור חדש.</p>
+    </div>
+  );
+  if (state==="alreadySigned") return (
+    <div style={{textAlign:"center",padding:40}}>
+      <div style={{width:64,height:64,borderRadius:"50%",background:C.green,color:"#fff",
+        display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 12px"}}>✓</div>
+      <h3 style={{color:C.green}}>כבר חתמת על מסמך זה</h3>
+      <p style={{color:C.muted}}>אין צורך בפעולה נוספת. טיול נעים! 🎒</p>
+    </div>
+  );
+  if (state==="done") return (
+    <div style={{textAlign:"center",padding:40}}>
+      <div style={{fontSize:64,marginBottom:8}}>🎒</div>
+      <h2 style={{color:C.navy,fontSize:24}}>חתמת בהצלחה!</h2>
+      <p style={{color:"#555",fontSize:15}}>כל האישורים הושלמו ונשמרו. טיול נעים ובטוח!</p>
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{color:C.navy,margin:"0 0 4px",fontSize:22}}>חתימת תלמיד/ה על אישור יציאה</h2>
+      <p style={{color:C.muted,marginBottom:20,fontSize:15}}>
+        <strong>{data?.studentName}</strong> | כיתה {data?.studentClass} | {CONFIG.TRIP_NAME}
+      </p>
+      {error && <div style={S.errBox}>⚠️ {error}</div>}
+      <div style={S.okBox}>
+        <p style={{fontWeight:700,color:"#166534",marginBottom:10,fontSize:15}}>✅ הורה חתם על האישור</p>
+        <p style={{fontSize:14,color:C.text,marginBottom:data?.parentSignature?10:0}}>
+          <strong>{data?.parentName}</strong> | ת.ז.: {data?.parentId}<br/>
+          <span style={{fontSize:12,color:C.muted}}>נחתם: {data?.parentSignedAt}</span>
+        </p>
+        {data?.parentSignature && (
+          <div>
+            <p style={{fontSize:12,color:C.muted,marginBottom:6}}>חתימת ההורה:</p>
+            <img src={data.parentSignature} alt="חתימת הורה"
+              style={{maxWidth:200,border:"1px solid #BBF7D0",borderRadius:8,background:"#fff",display:"block"}} />
+          </div>
+        )}
+        {data?.hasMedical && (
+          <div style={{marginTop:10,background:"#FEF9C3",borderRadius:8,padding:"6px 12px",
+            fontSize:13,color:"#854D0E",border:"1px solid #FDE047"}}>
+            ⚠️ נרשם מידע רפואי — מועבר לצוות המלווה
+          </div>
+        )}
+      </div>
+      <div style={{background:C.cream,border:"1px solid #E8E2CC",borderRadius:12,padding:18,marginBottom:20,
+        fontSize:13,lineHeight:1.85,color:C.text,fontFamily:'"Frank Ruhl Libre",serif',maxHeight:200,overflowY:"auto"}}>
+        <strong style={{fontFamily:"Heebo,sans-serif",fontSize:14}}>נוסח האישור:</strong>
+        <div style={{marginTop:8,whiteSpace:"pre-line"}}>{PERMISSION_TEXT}</div>
+      </div>
+      <div style={{...S.card,background:C.cream,border:"1px solid #EEE8D0"}}>
+        <p style={{fontWeight:700,color:C.navy,marginBottom:4,fontSize:15}}>✍️ חתימת התלמיד/ה</p>
+        <p style={{fontSize:12,color:"#A0A0A0",marginBottom:14}}>תאריך: {sigDate.current}</p>
+        <p style={{fontSize:14,color:"#444",marginBottom:16,lineHeight:1.7}}>
+          אני, <strong>{data?.studentName}</strong>, מאשר/ת שקראתי את האישור לעיל ומסכים/מה לתנאיו.
+        </p>
+        <SigPad onConfirm={setSig} label="חתימת התלמיד/ה" />
+      </div>
+      <button onClick={handleSubmit} disabled={!sig||submitting}
+        style={{...(sig&&!submitting?S.btnGold:S.btnOff),width:"100%"}}>
+        {submitting ? "⏳ שולח..." : "🔐 אשר וחתום ←"}
+      </button>
+    </div>
+  );
+}
+
+function App() {
+  const [mode, setMode]   = useState("detect");
+  const [token, setToken] = useState("");
+
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h.startsWith("#sign/")) {
+      setToken(decodeURIComponent(h.slice(6)));
+      setMode("student");
+    } else {
+      setMode("home");
+    }
+  }, []);
+
+  if (mode==="detect") return null;
+
+  return (
+    <div style={{ minHeight:"100vh",
+      background:`linear-gradient(160deg,#09132B 0%,${C.navyMid} 55%,#09132B 100%)`,
+      padding:"24px 16px 48px" }}>
+
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{display:"inline-flex",alignItems:"center",gap:10,
+          background:"rgba(255,255,255,0.07)",backdropFilter:"blur(8px)",
+          padding:"10px 22px",borderRadius:50,
+          border:"1px solid rgba(201,168,76,0.35)",marginBottom:14}}>
+          <span style={{fontSize:20}}>🎒</span>
+          <span style={{color:C.gold,fontWeight:700,fontSize:15}}>{CONFIG.SCHOOL_NAME}</span>
+        </div>
+        <h1 style={{color:"#fff",fontWeight:900,margin:0,fontSize:mode==="student"?22:28}}>
+          {mode==="student" ? "חתימת תלמיד על אישור יציאה" : "מערכת אישורי יציאה לטיול"}
+        </h1>
+        <p style={{color:"rgba(255,255,255,0.5)",marginTop:6,fontSize:14}}>
+          {CONFIG.TRIP_NAME} • {CONFIG.TRIP_DESTINATION} • {CONFIG.TRIP_DATES}
+        </p>
+      </div>
+
+      <div style={{maxWidth:660,margin:"0 auto"}}>
+        <div style={{background:"#fff",borderRadius:24,padding:"36px 32px",
+          boxShadow:"0 24px 80px rgba(0,0,0,0.4)"}}>
+
+          {mode==="home" && (
+            <div style={{textAlign:"center"}}>
+              <p style={{color:C.muted,fontSize:16,marginBottom:36,lineHeight:1.7}}>
+                ברוך/ה הבא/ה למערכת החתימות הדיגיטלית.<br/>
+                ההורה מתחיל/ה את התהליך — לאחריו התלמיד/ה יחתום/תחתום<br/>
+                דרך קישור שיישלח למייל הארגוני.
+              </p>
+              <button onClick={()=>setMode("parent")} style={{
+                ...S.btnNavy, padding:"20px 44px", borderRadius:16, fontSize:18,
+                display:"inline-flex", flexDirection:"column", alignItems:"center", gap:6,
+              }}>
+                <span style={{fontSize:32}}>👨‍👩‍👧</span>
+                <span>אני הורה — להתחיל</span>
+                <span style={{fontSize:12,fontWeight:400,opacity:0.65}}>חתימה על אישור יציאה לטיול</span>
+              </button>
+              <p style={{color:"#C0C0C0",fontSize:13,marginTop:28}}>
+                תלמיד/ה? פתח/י את הקישור שנשלח לכתובת המייל הארגונית שלך
+              </p>
+            </div>
+          )}
+
+          {mode==="parent"  && <ParentFlow />}
+          {mode==="student" && <StudentFlow token={token} />}
+        </div>
+        <p style={{textAlign:"center",color:"rgba(255,255,255,0.2)",fontSize:11,marginTop:14}}>
+          🔒 הנתונים מאוחסנים בצורה מאובטחת ב-Google Sheets של בית הספר
+        </p>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
