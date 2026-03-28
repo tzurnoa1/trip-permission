@@ -27,7 +27,7 @@ const { useState, useRef, useEffect, useCallback } = React;
 // ═══════════════════════════════════════════════
 const CONFIG = {
   WEBHOOK_URL:      "https://script.google.com/macros/s/AKfycby-TzCFxSHRE7YUIw2P1a0S7j88PhJSVjj_p_ZEX8ICx1nzrgAR3jTjXX7HCnaIzu8_qA/exec",
-  APP_URL:          "https://tzurnoa1.github.io/trip-permission/",
+  APP_URL:          "https://tzurnoa1.github.io/trip-permission/"",
   SCHOOL_NAME:      "בית ספר פסגות ORT",
   TRIP_NAME:        'טיול שנתי שכבה ז\' תשפ"ו — הרי גולן',
   TRIP_DESTINATION: "רמת הגולן",
@@ -147,7 +147,7 @@ const ALL_STUDENTS = [
   {firstName:"נאי",lastName:"אבו ימן",class:"ז3",email:"naiab31@psagot.ort.org.il"},
   {firstName:"נהוראי",lastName:"גנני",class:"ז3",email:"nehoraiga31@psagot.ort.org.il"},
   {firstName:"נויה",lastName:"צדיקפור",class:"ז3",email:"noyatzad31@psagot.ort.org.il"},
-  {firstName:"נועה",lastName:"צור",class:"ז3",email:"tzurnoa1@psagot.ort.org.il"},
+  {firstName:"נועה",lastName:"צור",class:"ז3",email:"tzurnoa1@gmail.com"},
   {firstName:"נתנאל",lastName:"ביידר",class:"ז3",email:"nathanielba31@psagot.ort.org.il"},
   {firstName:"סופיה",lastName:"ויינדורף",class:"ז3",email:"sofiawe31@psagot.ort.org.il"},
   {firstName:"עוז",lastName:"בן דיין",class:"ז3",email:"ozbe31@psagot.ort.org.il"},
@@ -466,8 +466,10 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload), mode:"no-cors" });
-      setConfirmId(""); setStep(5);
+      const res = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
+      const data = await res.json();
+      if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
+      else setError(data.error || "שגיאה. נסה שוב.");
     } catch { setError("שגיאת רשת — בדוק חיבור ונסה שוב."); }
     setSubmitting(false);
   };
@@ -663,12 +665,13 @@ function StudentFlow({ token }) {
   const handleSubmit = async () => {
     setSubmitting(true); setError("");
     try {
-      await fetch(CONFIG.WEBHOOK_URL, {
+      const res = await fetch(CONFIG.WEBHOOK_URL, {
         method:"POST", headers:{"Content-Type":"text/plain"},
         body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
-        mode:"no-cors"
       });
-      setState("done");
+      const d = await res.json();
+      if (d.success) setState("done");
+      else setError(d.error || "שגיאה בשמירה");
     } catch { setError("שגיאת רשת — נסה שוב"); }
     setSubmitting(false);
   };
