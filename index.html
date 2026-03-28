@@ -26,9 +26,8 @@ const { useState, useRef, useEffect, useCallback } = React;
 // ⚙️  CONFIG — שנה כאן לפני שימוש
 // ═══════════════════════════════════════════════
 const CONFIG = {
-WEBHOOK_URL:      "https://script.google.com/macros/s/AKfycbwjBBaOSKbIQ_yBBxOEuZnriI78_T3Okn98-8PP5ZSbX8TRlOWOUJw_8gbMg3rnF7JSWw/exec",
-  APP_URL:          "https://tzurnoa1.github.io/trip-permission/",
-  SCHOOL_NAME:      "בית ספר פסגות ORT",
+WEBHOOK_URL:      "https://script.google.com/macros/s/AKfycbx6Y8YuhJZU5ggRxCXxzjU2cqfjEiwY05p5PrbjSoKq6qcHc_98LMdEF6Z45yVh0OzZ5g/exec",
+  APP_URL:          "https://tzurnoa1.github.io/trip-permission/",  SCHOOL_NAME:      "בית ספר פסגות ORT",
   TRIP_NAME:        'טיול שנתי שכבה ז\' תשפ"ו — הרי גולן',
   TRIP_DESTINATION: "רמת הגולן",
   TRIP_DATES:       "18–19 במרץ 2026",
@@ -466,12 +465,8 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      // Use no-cors with text/plain to avoid preflight
-      const res = await fetch(CONFIG.WEBHOOK_URL, {
-        method:"POST",
-        headers:{"Content-Type":"text/plain;charset=utf-8"},
-        body:JSON.stringify(payload),
-      });
+      const params = new URLSearchParams({ data: JSON.stringify(payload) });
+      const res = await fetch(CONFIG.WEBHOOK_URL + "?" + params.toString());
       const text = await res.text();
       let data;
       try { data = JSON.parse(text); } catch(e) { data = {}; }
@@ -672,11 +667,9 @@ function StudentFlow({ token }) {
   const handleSubmit = async () => {
     setSubmitting(true); setError("");
     try {
-      const res = await fetch(CONFIG.WEBHOOK_URL, {
-        method:"POST",
-        headers:{"Content-Type":"text/plain;charset=utf-8"},
-        body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
-      });
+      const sPayload = {action:"studentSign",token,signature:sig,signedAt:sigDate.current};
+      const sParams = new URLSearchParams({ data: JSON.stringify(sPayload) });
+      const res = await fetch(CONFIG.WEBHOOK_URL + "?" + sParams.toString());
       const text = await res.text();
       let d;
       try { d = JSON.parse(text); } catch(e) { d = {}; }
