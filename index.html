@@ -466,9 +466,16 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      const res = await fetch(CONFIG.WEBHOOK_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload), redirect:"follow" });
-      const data = await res.json();
-      if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
+      // Use no-cors with text/plain to avoid preflight
+      const res = await fetch(CONFIG.WEBHOOK_URL, {
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
+        body:JSON.stringify(payload),
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!data.error) { setConfirmId(data.confirmationId||""); setStep(5); }
       else setError(data.error || "שגיאה. נסה שוב.");
     } catch { setError("שגיאת רשת — בדוק חיבור ונסה שוב."); }
     setSubmitting(false);
@@ -666,12 +673,14 @@ function StudentFlow({ token }) {
     setSubmitting(true); setError("");
     try {
       const res = await fetch(CONFIG.WEBHOOK_URL, {
-        method:"POST", headers:{"Content-Type":"text/plain"},
+        method:"POST",
+        headers:{"Content-Type":"text/plain;charset=utf-8"},
         body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
-        redirect:"follow",
       });
-      const d = await res.json();
-      if (d.success) setState("done");
+      const text = await res.text();
+      let d;
+      try { d = JSON.parse(text); } catch(e) { d = {}; }
+      if (!d.error) setState("done");
       else setError(d.error || "שגיאה בשמירה");
     } catch { setError("שגיאת רשת — נסה שוב"); }
     setSubmitting(false);
