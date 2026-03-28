@@ -26,8 +26,9 @@ const { useState, useRef, useEffect, useCallback } = React;
 // ⚙️  CONFIG — שנה כאן לפני שימוש
 // ═══════════════════════════════════════════════
 const CONFIG = {
-WEBHOOK_URL:      "https://script.google.com/macros/s/AKfycbxDLmYzpHDmrDDG9Zy9UycARyvrLboLd7R3zEHEssit7QxwqNyDnPNWJxtje7vgJiKx5Q/exec",
-  APP_URL:          "https://tzurnoa1.github.io/trip-permission/",  SCHOOL_NAME:      "בית ספר פסגות ORT",
+  WEBHOOK_URL: "https://script.google.com/macros/s/AKfycbytRyDTxqiyCguBKNH_tFHtiJyXt05332-fbXlzSQcxxbMW9yRD9EhQ_FzqKTaRArkDlA/exec",
+  APP_URL: "https://tzurnoa1.github.io/trip-permission/",
+  SCHOOL_NAME:      "בית ספר פסגות ORT",
   TRIP_NAME:        'טיול שנתי שכבה ז\' תשפ"ו — הרי גולן',
   TRIP_DESTINATION: "רמת הגולן",
   TRIP_DATES:       "18–19 במרץ 2026",
@@ -465,13 +466,18 @@ function ParentFlow() {
         signature: sig, signedAt: sigDate.current,
         tripName: CONFIG.TRIP_NAME, appUrl: CONFIG.APP_URL,
       };
-      const params = new URLSearchParams({ data: JSON.stringify(payload) });
-      const res = await fetch(CONFIG.WEBHOOK_URL + "?" + params.toString());
-      const text = await res.text();
-      let data;
-      try { data = JSON.parse(text); } catch(e) { data = {}; }
-      if (!data.error) { setConfirmId(data.confirmationId||""); setStep(5); }
-      else setError(data.error || "שגיאה. נסה שוב.");
+      fetch(CONFIG.WEBHOOK_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(payload),
+      }).then(r=>r.json()).then(data=>{
+        setSubmitting(false);
+        if (data.success) { setConfirmId(data.confirmationId||""); setStep(5); }
+        else setError(data.error || "שגיאה. נסה שוב.");
+      }).catch(()=>{
+        setSubmitting(false);
+        setError("שגיאת רשת — בדוק חיבור ונסה שוב.");
+      });
     } catch { setError("שגיאת רשת — בדוק חיבור ונסה שוב."); }
     setSubmitting(false);
   };
@@ -655,26 +661,30 @@ function StudentFlow({ token }) {
   useEffect(() => {
     if (!token) { setState("invalid"); return; }
     fetch(`${CONFIG.WEBHOOK_URL}?action=getSigningData&token=${encodeURIComponent(token)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.error)           setState("invalid");
+      .then(r=>r.json())
+      .then(d=>{
+        if (d.error)              setState("invalid");
         else if (d.alreadySigned) setState("alreadySigned");
         else { setData(d); setState("ready"); }
       })
-      .catch(() => setState("invalid"));
+      .catch(()=>setState("invalid"));
   }, [token]);
 
   const handleSubmit = async () => {
     setSubmitting(true); setError("");
     try {
-      const sPayload = {action:"studentSign",token,signature:sig,signedAt:sigDate.current};
-      const sParams = new URLSearchParams({ data: JSON.stringify(sPayload) });
-      const res = await fetch(CONFIG.WEBHOOK_URL + "?" + sParams.toString());
-      const text = await res.text();
-      let d;
-      try { d = JSON.parse(text); } catch(e) { d = {}; }
-      if (!d.error) setState("done");
-      else setError(d.error || "שגיאה בשמירה");
+      fetch(CONFIG.WEBHOOK_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"studentSign",token,signature:sig,signedAt:sigDate.current}),
+      }).then(r=>r.json()).then(d=>{
+        setSubmitting(false);
+        if (d.success) setState("done");
+        else setError(d.error || "שגיאה בשמירה");
+      }).catch(()=>{
+        setSubmitting(false);
+        setError("שגיאת רשת — נסה שוב.");
+      });
     } catch { setError("שגיאת רשת — נסה שוב"); }
     setSubmitting(false);
   };
@@ -760,9 +770,10 @@ function App() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const h = window.location.hash;
-    if (h.startsWith("#sign/")) {
-      setToken(decodeURIComponent(h.slice(6)));
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("token");
+    if (t) {
+      setToken(t);
       setMode("student");
     } else {
       setMode("home");
